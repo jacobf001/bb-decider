@@ -1,4 +1,4 @@
-const CACHE = 'bb-decider-v1';
+const CACHE = 'bb-decider-v2';
 const FILES = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
