@@ -197,6 +197,32 @@
   }
   .quick-line .chip { padding: 0.6rem 0.3rem; font-size: 0.78rem; }
 
+  .line-select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 1rem;
+    border-radius: 0.6rem;
+    font: inherit;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    text-align: center;
+    text-align-last: center;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg' viewBox%3D'0 0 16 16'%3E%3Cpath fill%3D'%238590a8' d%3D'M8 11L3 6h10z'%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
+  }
+  .line-select:focus { border-color: var(--accent); }
+  .line-select option { background: var(--surface); color: var(--text); }
+
   .verdict {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -494,29 +520,23 @@
       <button class="chip" data-val="home-asian">Home Asian</button>
       <button class="chip" data-val="ht-pressure">HT Pressure</button>
       <button class="chip" data-val="fh-pressure">FH Pressure FT</button>
-      <button class="chip" data-val="wider-home-ah" style="grid-column: 1 / -1;">Wider Home AH</button>
-      <button class="chip" data-val="fh-pressure-minus-ah" style="grid-column: 1 / -1;">FH Pressure Minus AH ⭐</button>
+      <button class="chip" data-val="fh-pressure-minus-ah" style="grid-column: 1 / -1;">FH Pressure Minus AH</button>
     </div>
   </div>
 
   <div class="step">
     <div class="step-label"><span class="step-num">2</span>Market</div>
-    <div class="grid-2" id="market-chips" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.4rem;">
+    <div class="grid-2" id="market-chips">
       <button class="chip" data-val="gl">Goal Line</button>
-      <button class="chip" data-val="ah-fav">AH Fav</button>
-      <button class="chip" data-val="ah-dog">AH Dog</button>
-      <button class="chip" data-val="ah-zero">AH 0 (DNB)</button>
+      <button class="chip" data-val="ah">Asian Handicap</button>
     </div>
   </div>
 
   <div class="step">
     <div class="step-label"><span class="step-num">3</span>Line</div>
-    <div class="input-row">
-      <button class="stepper-btn" id="line-down">−</button>
-      <input type="number" id="line-input" step="0.25" placeholder="0.5" inputmode="decimal">
-      <button class="stepper-btn" id="line-up">+</button>
-    </div>
-    <div class="quick-line" id="quick-lines"></div>
+    <select id="line-select" class="line-select">
+      <option value="">Select market first</option>
+    </select>
   </div>
 
   <div class="step">
@@ -753,33 +773,6 @@ const RULES = {
       { min: -99, max: 99, roi: 0, v: 'marginal', note: 'AH 0 not specifically tested' },
     ],
   },
-  'wider-home-ah': {
-    name: 'Wider Home AH',
-    'ah-fav': [
-      { min: -0.50, max: -0.50, roi: 12, v: 'take', note: '+10.5% overall on Home AH — back home favourite' },
-      { min: -1.00, max: -1.00, roi: 12, v: 'take', note: '+10.5% overall on Home AH' },
-      { min: -1.50, max: -1.50, roi: 10, v: 'take', note: '+10.5% overall on Home AH' },
-      { min: -0.75, max: -0.75, roi: 8, v: 'take', note: 'Within profitable range' },
-      { min: -0.25, max: -0.25, roi: 8, v: 'take', note: 'Within profitable range' },
-      { min: -1.25, max: -1.25, roi: 5, v: 'marginal', note: 'Thin edge' },
-    ],
-    gl: [
-      { min: 1.50, max: 1.50, roi: 66.5, v: 'take', note: '+66% historic (small sample)' },
-      { min: 2.00, max: 2.00, roi: 11.5, v: 'take', note: '+11.5% historic ROI' },
-      { min: 2.25, max: 2.25, roi: 16.6, v: 'take', note: '+16.6% historic ROI' },
-      { min: 3.00, max: 3.00, roi: 45.5, v: 'take', note: '+45% historic ROI' },
-      { min: 3.25, max: 3.50, roi: 11, v: 'take', note: 'Positive ROI zone' },
-      { min: 1.75, max: 1.75, roi: -7.6, v: 'skip', note: '-7.6% historic ROI' },
-      { min: 2.50, max: 2.75, roi: -2, v: 'marginal', note: 'Marginal — wait for line to drop if game stays 0-0' },
-      { min: 3.75, max: 99, roi: -15, v: 'skip', note: 'High lines unprofitable' },
-    ],
-    'ah-dog': [
-      { min: -99, max: 99, roi: -19.7, v: 'skip', note: 'Backing away/underdog: -19.7% ROI — avoid' },
-    ],
-    'ah-zero': [
-      { min: -99, max: 99, roi: 5, v: 'marginal', note: 'Limited data on DNB for this notification' },
-    ],
-  },
 };
 
 // Min odds floors per notification — anything below = automatic skip
@@ -788,7 +781,6 @@ const MIN_ODDS = {
   'home-asian': 1.30,
   'ht-pressure': 1.28,
   'fh-pressure': 1.50,
-  'wider-home-ah': 1.30,
   'fh-pressure-minus-ah': 1.50,
 };
 
@@ -802,12 +794,10 @@ const state = {
   settings: JSON.parse(localStorage.getItem('bb-settings') || '{"stake":2,"bankroll":100}'),
 };
 
-// Quick line presets per market
-const QUICK_LINES = {
-  gl: [0.5, 1.0, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5],
-  'ah-fav': [-0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -1.75, -2.0, -2.25, -2.5],
-  'ah-dog': [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5],
-  'ah-zero': [0],
+// Line options per market — full set with quarter lines
+const LINE_OPTIONS = {
+  gl: [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5, 4.75, 5.0],
+  ah: [-3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
 };
 
 // ============== UI ==============
@@ -848,45 +838,39 @@ $$('#market-chips .chip').forEach(c => {
     $$('#market-chips .chip').forEach(x => x.classList.remove('active'));
     c.classList.add('active');
     state.market = c.dataset.val;
-    renderQuickLines();
+    populateLineDropdown();
     update();
   });
 });
 
-function renderQuickLines() {
-  const el = $('#quick-lines');
-  el.innerHTML = '';
+function populateLineDropdown() {
+  const sel = $('#line-select');
+  sel.innerHTML = '<option value="">Select line</option>';
   if (!state.market) return;
-  const lines = QUICK_LINES[state.market] || [];
+  const lines = LINE_OPTIONS[state.market] || [];
   lines.forEach(l => {
-    const btn = document.createElement('button');
-    btn.className = 'chip';
-    btn.textContent = l > 0 ? '+' + l : l;
-    btn.addEventListener('click', () => {
-      $('#line-input').value = l;
-      state.line = l;
-      update();
-    });
-    el.appendChild(btn);
+    const opt = document.createElement('option');
+    opt.value = l;
+    let label;
+    if (state.market === 'gl') {
+      label = 'Over ' + l.toFixed(2);
+    } else if (l === 0) {
+      label = 'AH 0 (DNB)';
+    } else if (l > 0) {
+      label = 'AH +' + l;
+    } else {
+      label = 'AH ' + l;
+    }
+    opt.textContent = label;
+    sel.appendChild(opt);
   });
+  // Reset line state
+  state.line = null;
 }
 
-// Line input
-const lineInput = $('#line-input');
-lineInput.addEventListener('input', () => {
-  state.line = parseFloat(lineInput.value);
-  update();
-});
-$('#line-up').addEventListener('click', () => {
-  const v = (parseFloat(lineInput.value) || 0) + 0.25;
-  lineInput.value = v;
-  state.line = v;
-  update();
-});
-$('#line-down').addEventListener('click', () => {
-  const v = (parseFloat(lineInput.value) || 0) - 0.25;
-  lineInput.value = v;
-  state.line = v;
+// Line dropdown
+$('#line-select').addEventListener('change', e => {
+  state.line = e.target.value === '' ? null : parseFloat(e.target.value);
   update();
 });
 
@@ -913,10 +897,13 @@ $('#odds-down').addEventListener('click', () => {
 function getVerdict() {
   if (!state.notif || !state.market || state.line == null || isNaN(state.line) || state.odds == null || isNaN(state.odds)) return null;
 
-  // AH Fav at line 0 is the same as AH 0 (DNB) — redirect
+  // Route AH to fav/dog/zero based on line sign
   let market = state.market;
-  if (market === 'ah-fav' && state.line === 0) market = 'ah-zero';
-  if (market === 'ah-dog' && state.line === 0) market = 'ah-zero';
+  if (state.market === 'ah') {
+    if (state.line === 0) market = 'ah-zero';
+    else if (state.line < 0) market = 'ah-fav';
+    else market = 'ah-dog';
+  }
 
   const notifRules = RULES[state.notif];
   if (!notifRules) return null;
@@ -1024,10 +1011,9 @@ function clearForm() {
   state.line = null;
   state.odds = null;
   $$('.chip').forEach(c => c.classList.remove('active'));
-  $('#line-input').value = '';
+  $('#line-select').innerHTML = '<option value="">Select market first</option>';
   $('#odds-input').value = '';
   $('#game-input').value = '';
-  $('#quick-lines').innerHTML = '';
   update();
 }
 
@@ -1048,7 +1034,7 @@ function renderPending() {
     const card = document.createElement('div');
     card.className = 'bet-card';
     const notifName = RULES[b.notif]?.name || b.notif;
-    const marketName = b.market === 'gl' ? 'Goal Line' : b.market === 'ah-fav' ? 'AH Fav' : b.market === 'ah-dog' ? 'AH Dog' : 'AH 0 (DNB)';
+    const marketName = b.market === 'gl' ? 'Goal Line' : 'AH';
     card.innerHTML = `
       <div class="bet-card-top">
         <div class="bet-card-game">${b.game}</div>
