@@ -228,6 +228,24 @@
   .line-select:focus { border-color: var(--accent); }
   .line-select option { background: var(--surface); color: var(--text); }
 
+  .line-select option.line-strong { color: var(--green); font-weight: 700; }
+  .line-select option.line-good { color: #86efac; }
+  .line-select option.line-weak { color: var(--amber); }
+  .line-select option.line-skip { color: var(--red); }
+  .line-select.line-strong { border-color: var(--green); box-shadow: 0 0 0 1px rgba(74,222,128,0.25); }
+  .line-select.line-good { border-color: #86efac; box-shadow: 0 0 0 1px rgba(134,239,172,0.18); }
+  .line-select.line-weak { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,184,77,0.22); }
+  .line-select.line-skip { border-color: var(--red); box-shadow: 0 0 0 1px rgba(255,77,109,0.22); }
+  .line-legend {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    margin-top: 0.45rem;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+  }
+  .line-legend span { display: inline-flex; align-items: center; gap: 0.25rem; }
+
   .verdict {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -504,7 +522,7 @@
 <body>
 
 <div class="header">
-  <div class="logo">BB<span class="dot">.</span>decider <span style="color:var(--text-faint); font-size:0.65rem;">v3</span></div>
+  <div class="logo">BB<span class="dot">.</span>decider <span style="color:var(--text-faint); font-size:0.65rem;">v4</span></div>
   <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-faint);" id="header-stats">— bets · — ROI</div>
 </div>
 
@@ -542,6 +560,9 @@
     <select id="line-select" class="line-select">
       <option value="">Select market first</option>
     </select>
+    <div class="line-legend" id="line-legend" style="display:none;">
+      <span>🟢 strong</span><span>🟡 weak/marginal</span><span>🔴 skip/outside</span>
+    </div>
   </div>
 
   <div class="step">
@@ -785,6 +806,53 @@ function syncMarketToNotification() {
   }
 }
 
+
+function marketRuleKeyForLine(market, line) {
+  if (market !== 'ah') return market;
+  if (line === 0) return 'ah-zero';
+  return line < 0 ? 'ah-fav' : 'ah-dog';
+}
+
+function matchingRuleForLine(notifKey, market, line) {
+  const notifRules = RULES[notifKey];
+  if (!notifRules || !market || line == null || isNaN(line)) return null;
+  if (notifRules.allowedMarkets && !notifRules.allowedMarkets.includes(market)) {
+    return { v: 'skip', roi: 0 };
+  }
+  const ruleKey = marketRuleKeyForLine(market, line);
+  const rules = notifRules[ruleKey];
+  if (!rules) return { v: 'skip', roi: 0 };
+  return rules.find(r => line >= r.min && line <= r.max) || { v: 'marginal', roi: 0 };
+}
+
+function lineQualityClass(rule) {
+  if (!rule) return '';
+  if (rule.v === 'skip') return 'line-skip';
+  if (rule.v === 'marginal') return 'line-weak';
+  if ((rule.roi || 0) >= 15) return 'line-strong';
+  if ((rule.roi || 0) >= 5) return 'line-good';
+  return 'line-weak';
+}
+
+function lineQualityLabel(rule) {
+  if (!rule) return '';
+  if (rule.v === 'skip') return '🔴';
+  if (rule.v === 'marginal') return '🟡';
+  if ((rule.roi || 0) >= 15) return '🟢';
+  if ((rule.roi || 0) >= 5) return '🟢';
+  return '🟡';
+}
+
+function refreshLineSelectColour() {
+  const sel = $('#line-select');
+  sel.classList.remove('line-strong', 'line-good', 'line-weak', 'line-skip');
+  if (state.notif && state.market && state.line != null && !isNaN(state.line)) {
+    const rule = matchingRuleForLine(state.notif, state.market, state.line);
+    const cls = lineQualityClass(rule);
+    if (cls) sel.classList.add(cls);
+  }
+}
+
 // ============== UI ==============
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
@@ -833,7 +901,9 @@ $$('#market-chips .chip').forEach(c => {
 
 function populateLineDropdown() {
   const sel = $('#line-select');
+  sel.classList.remove('line-strong', 'line-good', 'line-weak', 'line-skip');
   sel.innerHTML = '<option value="">Select line</option>';
+  $('#line-legend').style.display = state.notif && state.market ? 'flex' : 'none';
   if (!state.market) return;
   const lines = LINE_OPTIONS[state.market] || [];
   lines.forEach(l => {
@@ -849,6 +919,16 @@ function populateLineDropdown() {
     } else {
       label = 'AH ' + l;
     }
+    const rule = matchingRuleForLine(state.notif, state.market, l);
+    const qClass = lineQualityClass(rule);
+    const qLabel = lineQualityLabel(rule);
+    if (qClass) opt.classList.add(qClass);
+    if (qLabel) label = qLabel + ' ' + label;
+    if (rule && rule.v !== 'skip' && typeof rule.roi === 'number') {
+      label += ` · ${rule.roi.toFixed(1)}% ROI`;
+    } else if (rule && rule.v === 'skip') {
+      label += ' · skip';
+    }
     opt.textContent = label;
     sel.appendChild(opt);
   });
@@ -859,6 +939,7 @@ function populateLineDropdown() {
 // Line dropdown
 $('#line-select').addEventListener('change', e => {
   state.line = e.target.value === '' ? null : parseFloat(e.target.value);
+  refreshLineSelectColour();
   update();
 });
 
@@ -932,6 +1013,7 @@ function getVerdict() {
 }
 
 function update() {
+  refreshLineSelectColour();
   const v = getVerdict();
   const el = $('#verdict');
   const logSection = $('#log-section');
@@ -1004,7 +1086,9 @@ function clearForm() {
   state.line = null;
   state.odds = null;
   $$('.chip').forEach(c => c.classList.remove('active'));
+  $('#line-select').classList.remove('line-strong', 'line-good', 'line-weak', 'line-skip');
   $('#line-select').innerHTML = '<option value="">Select market first</option>';
+  $('#line-legend').style.display = 'none';
   $('#odds-input').value = '';
   $('#game-input').value = '';
   update();
