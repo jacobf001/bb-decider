@@ -154,6 +154,11 @@
     border-color: var(--accent);
     font-weight: 600;
   }
+  .chip.disabled {
+    opacity: 0.32;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 
   .input-row {
     display: flex;
@@ -499,7 +504,7 @@
 <body>
 
 <div class="header">
-  <div class="logo">BB<span class="dot">.</span>decider <span style="color:var(--text-faint); font-size:0.65rem;">v2</span></div>
+  <div class="logo">BB<span class="dot">.</span>decider <span style="color:var(--text-faint); font-size:0.65rem;">v3</span></div>
   <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--text-faint);" id="header-stats">— bets · — ROI</div>
 </div>
 
@@ -525,7 +530,7 @@
   </div>
 
   <div class="step">
-    <div class="step-label"><span class="step-num">2</span>Market</div>
+    <div class="step-label"><span class="step-num">2</span>Market <span id="market-auto-note" style="color:var(--text-faint); font-size:0.62rem;">auto-selected after notification</span></div>
     <div class="grid-2" id="market-chips">
       <button class="chip" data-val="gl">Goal Line</button>
       <button class="chip" data-val="ah">Asian Handicap</button>
@@ -750,6 +755,36 @@ const LINE_OPTIONS = {
   ah: [-3.0, -2.75, -2.5, -2.25, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0],
 };
 
+function requiredMarketForNotification(notifKey) {
+  const allowed = RULES[notifKey]?.allowedMarkets || [];
+  return allowed.length === 1 ? allowed[0] : null;
+}
+
+function marketLabel(market) {
+  return market === 'gl' ? 'Goal Line' : market === 'ah' ? 'Asian Handicap' : '—';
+}
+
+function syncMarketToNotification() {
+  const required = requiredMarketForNotification(state.notif);
+  const chips = $$('#market-chips .chip');
+
+  chips.forEach(chip => {
+    const isRequired = required && chip.dataset.val === required;
+    chip.classList.toggle('active', !!isRequired);
+    chip.classList.toggle('disabled', !!required && !isRequired);
+    chip.setAttribute('aria-disabled', required && !isRequired ? 'true' : 'false');
+  });
+
+  if (required) {
+    state.market = required;
+    $('#market-auto-note').textContent = `auto: ${marketLabel(required)}`;
+    populateLineDropdown();
+  } else {
+    state.market = null;
+    $('#market-auto-note').textContent = 'auto-selected after notification';
+  }
+}
+
 // ============== UI ==============
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
@@ -773,6 +808,7 @@ $$('#notif-chips .chip').forEach(c => {
     $$('#notif-chips .chip').forEach(x => x.classList.remove('active'));
     c.classList.add('active');
     state.notif = c.dataset.val;
+    syncMarketToNotification();
     // Auto-fill odds at 1.85 if empty
     if (!$('#odds-input').value) {
       $('#odds-input').value = '1.85';
@@ -785,6 +821,8 @@ $$('#notif-chips .chip').forEach(c => {
 // Market chips
 $$('#market-chips .chip').forEach(c => {
   c.addEventListener('click', () => {
+    const required = requiredMarketForNotification(state.notif);
+    if (required && c.dataset.val !== required) return;
     $$('#market-chips .chip').forEach(x => x.classList.remove('active'));
     c.classList.add('active');
     state.market = c.dataset.val;
